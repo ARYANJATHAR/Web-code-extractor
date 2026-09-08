@@ -1,0 +1,51 @@
+/* Content script styles for Webflow Code Extractor */
+
+#wf-extractor-overlay {
+  position: fixed !important;
+  pointer-events: none !important;
+  z-index: 2147483646 !important;
+  border: 3px solid #667eea !important;
+  background: rgba(102, 126, 234, 0.15) !important;
+  transition: all 0.05s ease !important;
+  box-sizing: border-box !important;
+  border-radius: 4px !important;
+}
+
+#wf-extractor-tooltip {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+  color: #fff !important;
+  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  pointer-events: none !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+  border: 1px solid rgba(102, 126, 234, 0.3) !important;
+  max-width: 300px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+#wf-extractor-confirm {
+  animation: wf-slide-in 0.3s ease !important;
+}
+
+@keyframes wf-slide-in {
+  from {
+    transform: translateX(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* When picker is active, change cursor globally */
+body.wf-picker-active,
+body.wf-picker-active * {
+  cursor: crosshair !important;
+}

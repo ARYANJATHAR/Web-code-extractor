@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webflow Code Extractor</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎨 Webflow Code Extractor</h1>
+      <p class="subtitle">Extract HTML & CSS from any element</p>
+    </header>
+
+    <div class="controls">
+      <button id="togglePicker" class="btn btn-primary">
+        <span class="icon">🎯</span>
+        Start Element Picker
+      </button>
+      
+      <button id="extractPage" class="btn btn-secondary">
+        <span class="icon">📄</span>
+        Extract Full Page
+      </button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="html">HTML</button>
+      <button class="tab" data-tab="css">CSS</button>
+      <button class="tab" data-tab="react">React</button>
+      <button class="tab" data-tab="combined">Combined</button>
+    </div>
+
+    <div class="code-container">
+      <div class="code-header">
+        <span class="code-label">Code Output</span>
+        <button id="copyCode" class="btn btn-small">
+          <span class="icon">📋</span>
+          Copy
+        </button>
+      </div>
+      <div class="code-wrapper">
+        <pre id="codeOutput"><code>Click "Start Element Picker" and select an element on the page to extract its code.</code></pre>
+      </div>
+    </div>
+
+    <div class="options">
+      <label class="checkbox-label">
+        <input type="checkbox" id="includeChildren" checked>
+        <span>Include child elements</span>
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="includeComputed" checked>
+        <span>Include computed styles</span>
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="cleanWebflow">
+        <span>Clean Webflow classes</span>
+      </label>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

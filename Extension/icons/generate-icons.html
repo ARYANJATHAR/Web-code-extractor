@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Icons</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a2e; color: white; }
+        canvas { border: 1px solid #333; margin: 10px; }
+        .container { display: flex; gap: 20px; flex-wrap: wrap; }
+        a { color: #667eea; }
+    </style>
+</head>
+<body>
+    <h1>Extension Icon Generator</h1>
+    <p>Right-click each canvas and "Save image as..." with the corresponding filename</p>
+    <div class="container">
+        <div>
+            <h3>icon16.png</h3>
+            <canvas id="icon16" width="16" height="16"></canvas>
+        </div>
+        <div>
+            <h3>icon48.png</h3>
+            <canvas id="icon48" width="48" height="48"></canvas>
+        </div>
+        <div>
+            <h3>icon128.png</h3>
+            <canvas id="icon128" width="128" height="128"></canvas>
+        </div>
+    </div>
+    
+    <script>
+        function drawIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            
+            // Draw rounded rectangle
+            const radius = size * 0.2;
+            ctx.beginPath();
+            ctx.roundRect(0, 0, size, size, radius);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Draw "W" symbol
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = size * 0.08;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            const padding = size * 0.25;
+            const midX = size / 2;
+            const topY = padding;
+            const bottomY = size - padding;
+            const leftX = padding;
+            const rightX = size - padding;
+            
+            ctx.beginPath();
+            ctx.moveTo(leftX, topY);
+            ctx.lineTo(midX, bottomY);
+            ctx.lineTo(rightX, topY);
+            ctx.stroke();
+            
+            // Horizontal line
+            ctx.beginPath();
+            const lineY = size * 0.5;
+            ctx.moveTo(leftX + size * 0.1, lineY);
+            ctx.lineTo(rightX - size * 0.1, lineY);
+            ctx.stroke();
+        }
+        
+        drawIcon('icon16', 16);
+        drawIcon('icon48', 48);
+        drawIcon('icon128', 128);
+    </script>
+</body>
+</html>
