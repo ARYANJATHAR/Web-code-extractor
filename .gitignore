@@ -54,3 +54,13 @@ out/
 .cache/
 temp/
 tmp/
+
+# Internal QC / listing notes (not for buyers)
+qualitychecks.md
+
+# Binary icons (use SVG source; generate PNGs locally if needed)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico

@@ -357,29 +357,34 @@ ${styledComponent}`;
     const styledElements = [];
     
     function processElement(el, index = 0) {
-      const computed = window.getComputedStyle(el);
       const styleObj = {};
-      const relevantProps = [
-        'display', 'position', 'width', 'height', 'margin', 'padding',
-        'backgroundColor', 'color', 'fontSize', 'fontWeight', 'fontFamily',
-        'lineHeight', 'textAlign', 'border', 'borderRadius', 'boxShadow',
-        'flexDirection', 'justifyContent', 'alignItems', 'gap'
-      ];
-      
-      for (const prop of relevantProps) {
-        const value = computed[prop];
-        if (value && value !== 'none' && value !== 'normal' && value !== 'auto' && 
-            value !== '0px' && value !== 'rgba(0, 0, 0, 0)' && value !== 'rgb(0, 0, 0)') {
-          styleObj[prop] = value;
+
+      if (options.includeComputed) {
+        const computed = window.getComputedStyle(el);
+        const relevantProps = [
+          'display', 'position', 'width', 'height', 'margin', 'padding',
+          'backgroundColor', 'color', 'fontSize', 'fontWeight', 'fontFamily',
+          'lineHeight', 'textAlign', 'border', 'borderRadius', 'boxShadow',
+          'flexDirection', 'justifyContent', 'alignItems', 'gap'
+        ];
+
+        for (const prop of relevantProps) {
+          const value = computed[prop];
+          if (value && value !== 'none' && value !== 'normal' && value !== 'auto' &&
+              value !== '0px' && value !== 'rgba(0, 0, 0, 0)' && value !== 'rgb(0, 0, 0)') {
+            styleObj[prop] = value;
+          }
         }
+      } else if (el.getAttribute('style')) {
+        Object.assign(styleObj, parseInlineStyle(el.getAttribute('style')));
       }
-      
+
       if (Object.keys(styleObj).length > 0) {
         const styleName = `style${index || 'Container'}`;
         styles[styleName] = styleObj;
         styledElements.push({ element: el, styleName });
       }
-      
+
       if (options.includeChildren) {
         Array.from(el.children).forEach((child, i) => processElement(child, index + i + 1));
       }
@@ -485,8 +490,52 @@ ${styledComponent}`;
     return html;
   }
 
+  // Extract inline style attributes only (when computed styles are disabled)
+  function extractInlineStylesOnly(element) {
+    const styles = [];
+    const processedElements = new Set();
+
+    function processElement(el) {
+      if (processedElements.has(el)) return;
+      processedElements.add(el);
+
+      const inlineStyle = el.getAttribute('style');
+      if (inlineStyle && inlineStyle.trim()) {
+        const selector = generateSelector(el);
+        const cssText = inlineStyle
+          .split(';')
+          .map((declaration) => declaration.trim())
+          .filter(Boolean)
+          .map((declaration) => {
+            const colonIndex = declaration.indexOf(':');
+            if (colonIndex === -1) return null;
+            const property = declaration.slice(0, colonIndex).trim();
+            const value = declaration.slice(colonIndex + 1).trim();
+            return property && value ? `  ${property}: ${value};` : null;
+          })
+          .filter(Boolean)
+          .join('\n');
+
+        if (cssText) {
+          styles.push({ selector, styles: cssText });
+        }
+      }
+
+      if (options.includeChildren) {
+        Array.from(el.children).forEach((child) => processElement(child));
+      }
+    }
+
+    processElement(element);
+    return styles;
+  }
+
   // Extract CSS
   function extractCSS(element) {
+    if (!options.includeComputed) {
+      return extractInlineStylesOnly(element);
+    }
+
     const styles = [];
     const processedElements = new Set();
 
