@@ -1,106 +1,86 @@
-// DOM Elements
 const togglePickerBtn = document.getElementById('togglePicker');
 const extractPageBtn = document.getElementById('extractPage');
 const copyCodeBtn = document.getElementById('copyCode');
+const clearHistoryBtn = document.getElementById('clearHistory');
 const codeOutput = document.getElementById('codeOutput');
 const statusEl = document.getElementById('status');
+const historyList = document.getElementById('historyList');
 const tabs = document.querySelectorAll('.tab');
 
-// Options
 const includeChildrenCheck = document.getElementById('includeChildren');
 const includeComputedCheck = document.getElementById('includeComputed');
 const cleanWebflowCheck = document.getElementById('cleanWebflow');
 
-// State
 let currentCode = {
   html: '',
   css: '',
   react: '',
+  tailwind: '',
+  mapped: '',
   combined: ''
 };
 let activeTab = 'html';
 let isPickerActive = false;
 
-// Initialize
 document.addEventListener('DOMContentLoaded', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  
-  // Check for stored code from element picker
+
   try {
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => {
         const code = sessionStorage.getItem('wf-extractor-code');
         const timestamp = sessionStorage.getItem('wf-extractor-timestamp');
-        if (code && timestamp) {
-          // Only use if captured within last 30 seconds
-          if (Date.now() - parseInt(timestamp) < 30000) {
-            sessionStorage.removeItem('wf-extractor-code');
-            sessionStorage.removeItem('wf-extractor-timestamp');
-            return JSON.parse(code);
-          }
+        if (code && timestamp && Date.now() - parseInt(timestamp) < 30000) {
+          sessionStorage.removeItem('wf-extractor-code');
+          sessionStorage.removeItem('wf-extractor-timestamp');
+          return JSON.parse(code);
         }
         return null;
       }
     });
-    
-    if (results && results[0] && results[0].result) {
-      currentCode = results[0].result;
-      updateCodeDisplay();
+
+    if (results?.[0]?.result) {
+      await applyExtractedCode(results[0].result, tab.url);
       showStatus('success', 'Element code loaded!');
     }
   } catch (err) {
     console.log('Could not check for stored code:', err);
   }
-  
-  // Check if picker is already active
-  chrome.tabs.sendMessage(tab.id, { action: 'getPickerState' }, (response) => {
-    if (chrome.runtime.lastError) return;
-    if (response && response.isActive) {
+
+  try {
+    const response = await WfMessaging.sendTabMessage(tab.id, { action: 'getPickerState' }, { retries: 2 });
+    if (response?.isActive) {
       isPickerActive = true;
       togglePickerBtn.classList.add('active');
       togglePickerBtn.innerHTML = '<span class="icon">🛑</span> Stop Picker';
     }
-  });
+  } catch (err) {
+    // Content script not injected yet
+  }
+
+  await renderHistory();
 });
 
-// Tab switching
-tabs.forEach(tab => {
+tabs.forEach((tab) => {
   tab.addEventListener('click', () => {
-    tabs.forEach(t => t.classList.remove('active'));
+    tabs.forEach((t) => t.classList.remove('active'));
     tab.classList.add('active');
     activeTab = tab.dataset.tab;
     updateCodeDisplay();
   });
 });
 
-// Toggle element picker
 togglePickerBtn.addEventListener('click', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    // First inject the content script if needed
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ['content/content.js']
-    }).catch(() => {}); // Ignore if already injected
-    
-    await chrome.scripting.insertCSS({
-      target: { tabId: tab.id },
-      files: ['content/content.css']
-    }).catch(() => {}); // Ignore if already injected
+    await WfMessaging.injectContentScripts(tab.id, WfMessaging.CONTENT_SCRIPT_FILES);
 
     isPickerActive = !isPickerActive;
-    
-    chrome.tabs.sendMessage(tab.id, { 
+
+    await WfMessaging.sendTabMessage(tab.id, {
       action: 'togglePicker',
       options: getOptions()
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        showStatus('error', 'Could not connect to page. Try refreshing.');
-        isPickerActive = false;
-        return;
-      }
     });
 
     if (isPickerActive) {
@@ -113,53 +93,38 @@ togglePickerBtn.addEventListener('click', async () => {
       hideStatus();
     }
   } catch (error) {
-    showStatus('error', 'Error: ' + error.message);
+    showStatus('error', 'Could not connect to page. Try refreshing.');
+    isPickerActive = false;
   }
 });
 
-// Extract full page
 extractPageBtn.addEventListener('click', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    // Inject content script if needed
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ['content/content.js']
-    }).catch(() => {});
-
+    await WfMessaging.injectContentScripts(tab.id, WfMessaging.CONTENT_SCRIPT_FILES);
     showStatus('info', 'Extracting page code...');
 
-    chrome.tabs.sendMessage(tab.id, { 
+    const response = await WfMessaging.sendTabMessage(tab.id, {
       action: 'extractFullPage',
       options: getOptions()
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        showStatus('error', 'Could not connect to page. Try refreshing.');
-        return;
-      }
-      
-      if (response && response.success) {
-        currentCode = response.code;
-        updateCodeDisplay();
-        showStatus('success', 'Page code extracted successfully!');
-      } else {
-        showStatus('error', 'Failed to extract page code');
-      }
     });
+
+    if (response?.success) {
+      await applyExtractedCode(response.code, tab.url);
+      showStatus('success', 'Page code extracted successfully!');
+    } else {
+      showStatus('error', 'Failed to extract page code');
+    }
   } catch (error) {
-    showStatus('error', 'Error: ' + error.message);
+    showStatus('error', 'Could not connect to page. Try refreshing.');
   }
 });
 
-// Copy code
 copyCodeBtn.addEventListener('click', async () => {
   const code = currentCode[activeTab] || codeOutput.textContent;
-  
   try {
     await navigator.clipboard.writeText(code);
     showStatus('success', 'Code copied to clipboard!');
-    
     copyCodeBtn.innerHTML = '<span class="icon">✅</span> Copied!';
     setTimeout(() => {
       copyCodeBtn.innerHTML = '<span class="icon">📋</span> Copy';
@@ -169,21 +134,63 @@ copyCodeBtn.addEventListener('click', async () => {
   }
 });
 
-// Listen for messages from content script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+clearHistoryBtn.addEventListener('click', async () => {
+  await WfStorage.clearHistory();
+  await renderHistory();
+  showStatus('success', 'History cleared');
+});
+
+chrome.runtime.onMessage.addListener((message) => {
   if (message.action === 'elementSelected') {
-    currentCode = message.code;
-    updateCodeDisplay();
+    chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+      applyExtractedCode(message.code, tab?.url || '');
+    });
     showStatus('success', 'Element code extracted!');
-    
-    // Auto-stop picker after selection
     isPickerActive = false;
     togglePickerBtn.classList.remove('active');
     togglePickerBtn.innerHTML = '<span class="icon">🎯</span> Start Element Picker';
   }
 });
 
-// Helper functions
+async function applyExtractedCode(code, url) {
+  currentCode = code;
+  updateCodeDisplay();
+
+  const preview = code.html || code.css || code.react || '';
+  await WfStorage.saveExtraction({
+    url,
+    selector: 'element',
+    preview,
+    code
+  });
+  await renderHistory();
+}
+
+async function renderHistory() {
+  const history = await WfStorage.getHistory();
+  historyList.innerHTML = '';
+
+  if (!history.length) {
+    historyList.innerHTML = '<li class="history-empty">No saved extractions yet</li>';
+    return;
+  }
+
+  history.forEach((item) => {
+    const li = document.createElement('li');
+    li.className = 'history-item';
+    li.innerHTML = `
+      <div class="history-meta">${new Date(item.savedAt).toLocaleString()}</div>
+      <div class="history-preview">${item.preview || 'Extraction'}</div>
+    `;
+    li.addEventListener('click', () => {
+      currentCode = item.code;
+      updateCodeDisplay();
+      showStatus('info', 'Loaded from history');
+    });
+    historyList.appendChild(li);
+  });
+}
+
 function getOptions() {
   return {
     includeChildren: includeChildrenCheck.checked,
@@ -194,18 +201,13 @@ function getOptions() {
 
 function updateCodeDisplay() {
   const code = currentCode[activeTab] || '';
-  if (code) {
-    codeOutput.textContent = code;
-  }
+  codeOutput.textContent = code || 'No output for this tab yet.';
 }
 
 function showStatus(type, message) {
   statusEl.className = 'status ' + type;
   statusEl.textContent = message;
-  
-  if (type === 'success') {
-    setTimeout(hideStatus, 3000);
-  }
+  if (type === 'success') setTimeout(hideStatus, 3000);
 }
 
 function hideStatus() {

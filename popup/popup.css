@@ -99,6 +99,7 @@ header h1 {
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 3px;
   margin-bottom: 10px;
   background: rgba(0, 0, 0, 0.2);
@@ -107,8 +108,8 @@ header h1 {
 }
 
 .tab {
-  flex: 1;
-  padding: 8px 8px;
+  flex: 1 1 30%;
+  padding: 8px 6px;
   background: transparent;
   border: none;
   color: #888;
@@ -258,4 +259,56 @@ header h1 {
 
 .code-value {
   color: #ffa657;
+}
+
+.history-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 15px;
+  overflow: hidden;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.history-list {
+  list-style: none;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.history-item {
+  padding: 10px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.history-item:hover {
+  background: rgba(102, 126, 234, 0.15);
+}
+
+.history-meta {
+  font-size: 10px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.history-preview {
+  font-size: 11px;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-empty {
+  padding: 12px 15px;
+  font-size: 11px;
+  color: #666;
 }

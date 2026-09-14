@@ -1,10 +1,19 @@
-// Background service worker for Webflow Code Extractor
+const CONTENT_SCRIPT_FILES = [
+  'lib/html-formatter.js',
+  'lib/webflow-mapper.js',
+  'lib/jsx-converter.js',
+  'lib/css-extractor.js',
+  'lib/tailwind-converter.js',
+  'lib/react-generator.js',
+  'lib/persistence.js',
+  'lib/picker-state.js',
+  'lib/extraction-pipeline.js',
+  'content/content.js'
+];
 
-// Handle installation - create context menu
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('Webflow Code Extractor installed:', details.reason);
-  
-  // Create context menu only if API is available
+
   if (chrome.contextMenus) {
     chrome.contextMenus.create({
       id: 'extract-element',
@@ -18,7 +27,6 @@ chrome.runtime.onInstalled.addListener((details) => {
   }
 });
 
-// Handle messages between popup and content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'elementSelected') {
     return true;
@@ -26,25 +34,53 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// Context menu click handler - wrapped in check
+function sendTabMessageWithRetry(tabId, message, attempt = 0) {
+  const maxRetries = 3;
+  const backoffMs = 200;
+
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+      if (chrome.runtime.lastError) {
+        if (attempt < maxRetries - 1) {
+          setTimeout(() => {
+            sendTabMessageWithRetry(tabId, message, attempt + 1).then(resolve).catch(reject);
+          }, backoffMs * (attempt + 1));
+          return;
+        }
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve(response);
+    });
+  });
+}
+
+async function injectAllContentScripts(tabId) {
+  for (const file of CONTENT_SCRIPT_FILES) {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId }, files: [file] });
+    } catch (err) {
+      // May already be injected
+    }
+  }
+}
+
 if (chrome.contextMenus && chrome.contextMenus.onClicked) {
-  chrome.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId === 'extract-element') {
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['content/content.js']
-      }).then(() => {
-        chrome.tabs.sendMessage(tab.id, { 
-          action: 'togglePicker',
-          options: {
-            includeChildren: true,
-            includeComputed: true,
-            cleanWebflow: false
-          }
-        });
-      }).catch(err => {
-        console.error('Failed to inject content script:', err);
+  chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+    if (info.menuItemId !== 'extract-element' || !tab?.id) return;
+
+    try {
+      await injectAllContentScripts(tab.id);
+      await sendTabMessageWithRetry(tab.id, {
+        action: 'togglePicker',
+        options: {
+          includeChildren: true,
+          includeComputed: true,
+          cleanWebflow: false
+        }
       });
+    } catch (err) {
+      console.error('Failed to start picker from context menu:', err);
     }
   });
 }

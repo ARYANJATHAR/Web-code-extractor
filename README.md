@@ -1,103 +1,85 @@
 # Webflow Code Extractor
 
-A Chrome extension that extracts HTML and CSS code from Webflow designs and any webpage.
+A Chrome extension that extracts HTML, CSS, React, Tailwind, and Webflow class mappings from Webflow designs and any webpage.
 
 ## Features
 
-- **Element Picker** - Click on any element to extract its code
-- **Full Page Extraction** - Extract the entire page's HTML and CSS
-- **One-Click Copy** - Easily copy generated code to clipboard
+- **Element Picker** — Click any element to extract its code
+- **Full Page Extraction** — Extract entire page HTML and stylesheets
+- **Multiple Output Formats** — HTML, CSS, React, Tailwind, Webflow class mapping, Combined
+- **Extraction History** — Last 10 extractions saved via `chrome.storage`
 - **Customizable Options**:
   - Include/exclude child elements
-  - Include computed styles
-  - Clean Webflow-specific classes
+  - Include computed styles (or inline-only)
+  - Clean Webflow classes
 
 ## Installation
 
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in top right corner)
+1. Open Chrome and go to `chrome://extensions/`
+2. Enable **Developer mode**
 3. Click **Load unpacked**
 4. Select this project folder
-5. The extension icon will appear in your toolbar
 
-> **Note:** Icons ship as SVG source files. If Chrome shows a default puzzle-piece icon, open `icons/generate-icons.html`, save the PNGs, and update `manifest.json` to reference them.
+> Icons ship as SVG source files. If Chrome shows a default icon, open `icons/generate-icons.html`, save PNGs locally, and update `manifest.json` paths.
 
 ## Usage
 
-1. Navigate to any Webflow site or webpage
-2. Click the extension icon in Chrome toolbar
-3. Choose an action:
-   - **Start Element Picker**: Click to select an element on the page
-   - **Extract Full Page**: Get the entire page's code
-4. View the extracted code in the popup (HTML, CSS, React, or Combined)
-5. Click **Copy** to copy the code to your clipboard
+1. Navigate to a Webflow site or any webpage
+2. Click the extension icon
+3. Use **Start Element Picker** or **Extract Full Page**
+4. Switch tabs: HTML, CSS, React, Tailwind, Mapped, Combined
+5. Click **Copy** or reload from **Extraction History**
 
-## Options
-
-- **Include child elements**: When enabled, extracts all nested elements
-- **Include computed styles**: Extracts rendered CSS via `getComputedStyle`; when disabled, only inline `style` attributes are captured
-- **Clean Webflow classes**: Removes Webflow-specific class names (`w-*`, etc.)
-
-## File Structure
+## Architecture
 
 ```
 Web-code-extractor/
-├── LICENSE                # MIT license
-├── manifest.json          # Extension configuration
-├── background/
-│   └── background.js      # Service worker
-├── content/
-│   ├── content.js         # Content script (element picker + extraction)
-│   └── content.css        # Overlay styles
-├── popup/
-│   ├── popup.html         # Extension popup UI
-│   ├── popup.css          # Popup styles
-│   └── popup.js           # Popup logic
-├── icons/
-│   ├── icon16.svg         # 16x16 icon (source)
-│   ├── icon48.svg         # 48x48 icon (source)
-│   ├── icon128.svg        # 128x128 icon (source)
-│   └── generate-icons.html
-└── scripts/
-    └── package-listing.ps1  # Build a listing-ready zip
+├── LICENSE
+├── package.json
+├── manifest.json
+├── lib/
+│   ├── html-formatter.js      # HTML/CSS formatting
+│   ├── webflow-mapper.js      # Webflow class → semantic names
+│   ├── jsx-converter.js       # DOM → JSX conversion
+│   ├── css-extractor.js       # Computed/inline CSS extraction
+│   ├── tailwind-converter.js  # CSS → Tailwind utilities
+│   ├── react-generator.js     # React component generation
+│   ├── messaging.js           # Retry messaging (popup)
+│   └── storage.js             # Extraction history (popup)
+├── content/content.js         # Picker UI + orchestration
+├── background/background.js   # Context menu + injection
+├── popup/                     # Extension popup UI
+├── tests/                     # Node unit tests
+└── icons/                     # SVG icon sources
 ```
 
-## Creating PNG Icons (optional)
+## Development
 
-Chrome may require raster icons in some setups:
+Run unit tests:
 
-1. Open `icons/generate-icons.html` in Chrome
-2. Right-click each canvas and save as `icon16.png`, `icon48.png`, `icon128.png`
-3. Update `manifest.json` icon paths from `.svg` to `.png`
-
-## Packaging for Distribution
-
-To create a clean source archive (no `.git`, no binary images, no internal QC notes):
-
-```powershell
-.\scripts\package-listing.ps1
+```bash
+npm test
 ```
 
-Output: `dist/Web-code-extractor-listing.zip`
+## Options
 
-The script excludes:
-
-- `.git/` and git metadata
-- Binary images (`.png`, `.jpg`, etc.)
-- `qualitychecks.md` and build artifacts
+- **Include child elements** — `outerHTML` vs element-only
+- **Include computed styles** — `getComputedStyle` vs inline `style` only
+- **Clean Webflow classes** — Remove `w-*` classes and `data-*` attributes
 
 ## Permissions
 
-- `activeTab`: Access the current tab to extract code
-- `scripting`: Inject content scripts
-- `clipboardWrite`: Copy code to clipboard
-- `contextMenus`: Right-click "Extract Element Code"
+- `activeTab` — Access current tab for extraction
+- `scripting` — Inject content scripts
+- `clipboardWrite` — Copy code to clipboard
+- `contextMenus` — Right-click "Extract Element Code"
+- `storage` — Save extraction history
 
 ## Notes
 
 - Works best on Webflow-published sites
-- Some cross-origin stylesheets may not be extractable due to browser security
-- SVG icons are included as editable source; generate PNGs if your Chrome build requires them
+- Cross-origin stylesheets may not be extractable (browser security)
+- Repository uses SVG icons only (no binary PNGs)
 
 ## License
 

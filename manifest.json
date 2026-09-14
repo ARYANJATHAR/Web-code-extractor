@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Webflow Code Extractor",
-  "version": "1.0.0",
-  "description": "Extract HTML and CSS code from Webflow designs",
+  "version": "1.1.1",
+  "description": "Extract HTML, CSS, React, and Tailwind code from Webflow designs",
   "permissions": [
     "activeTab",
     "scripting",
     "clipboardWrite",
-    "contextMenus"
+    "contextMenus",
+    "storage"
   ],
   "host_permissions": [
     "https://*.webflow.io/*",
@@ -30,7 +31,18 @@
   "content_scripts": [
     {
       "matches": ["*://*/*"],
-      "js": ["content/content.js"],
+      "js": [
+        "lib/html-formatter.js",
+        "lib/webflow-mapper.js",
+        "lib/jsx-converter.js",
+        "lib/css-extractor.js",
+        "lib/tailwind-converter.js",
+        "lib/react-generator.js",
+        "lib/persistence.js",
+        "lib/picker-state.js",
+        "lib/extraction-pipeline.js",
+        "content/content.js"
+      ],
       "css": ["content/content.css"]
     }
   ],
