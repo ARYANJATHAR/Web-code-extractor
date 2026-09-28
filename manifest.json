@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Webflow Code Extractor",
   "version": "1.1.1",
-  "description": "Extract HTML, CSS, React, and Tailwind code from Webflow designs",
+  "description": "Extract HTML, CSS, React, and Tailwind code from any website (incl. Webflow designs)",
   "permissions": [
     "activeTab",
     "scripting",
@@ -10,42 +10,19 @@
     "contextMenus",
     "storage"
   ],
-  "host_permissions": [
-    "https://*.webflow.io/*",
-    "https://*.webflow.com/*",
-    "*://*/*"
-  ],
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
-      "16": "icons/icon16.svg",
-      "48": "icons/icon48.svg",
-      "128": "icons/icon128.svg"
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     }
   },
   "icons": {
-    "16": "icons/icon16.svg",
-    "48": "icons/icon48.svg",
-    "128": "icons/icon128.svg"
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
-  "content_scripts": [
-    {
-      "matches": ["*://*/*"],
-      "js": [
-        "lib/html-formatter.js",
-        "lib/webflow-mapper.js",
-        "lib/jsx-converter.js",
-        "lib/css-extractor.js",
-        "lib/tailwind-converter.js",
-        "lib/react-generator.js",
-        "lib/persistence.js",
-        "lib/picker-state.js",
-        "lib/extraction-pipeline.js",
-        "content/content.js"
-      ],
-      "css": ["content/content.css"]
-    }
-  ],
   "background": {
     "service_worker": "background/background.js"
   }

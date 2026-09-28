@@ -64,3 +64,5 @@ qualitychecks.md
 *.jpeg
 *.gif
 *.ico
+# Exception: extension toolbar icons must ship as PNG (Chrome requirement)
+!icons/*.png

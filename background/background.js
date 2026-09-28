@@ -11,8 +11,19 @@ const CONTENT_SCRIPT_FILES = [
   'content/content.js'
 ];
 
-chrome.runtime.onInstalled.addListener((details) => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('Webflow Code Extractor installed:', details.reason);
+
+  // User choice: wipe extraction history on update so legacy entries
+  // with raw-HTML previews can never render again.
+  if (details.reason === 'update') {
+    try {
+      await chrome.storage.local.remove('wf-extraction-history');
+      console.log('Cleared extraction history after update');
+    } catch (err) {
+      console.warn('Could not clear history on update:', err);
+    }
+  }
 
   if (chrome.contextMenus) {
     chrome.contextMenus.create({
@@ -27,11 +38,13 @@ chrome.runtime.onInstalled.addListener((details) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'elementSelected') {
-    return true;
+chrome.runtime.onMessage.addListener((message) => {
+  // No async response needed; return false so the channel closes promptly.
+  // elementSelected is handled by the popup via its own listener.
+  if (message && message.action === 'elementSelected') {
+    return false;
   }
-  return true;
+  return false;
 });
 
 function sendTabMessageWithRetry(tabId, message, attempt = 0) {
@@ -60,8 +73,14 @@ async function injectAllContentScripts(tabId) {
     try {
       await chrome.scripting.executeScript({ target: { tabId }, files: [file] });
     } catch (err) {
-      // May already be injected
+      // Restricted pages (chrome://, Web Store, PDFs) or already-injected.
+      console.warn('Inject skipped for', file, ':', err && err.message);
     }
+  }
+  try {
+    await chrome.scripting.insertCSS({ target: { tabId }, files: ['content/content.css'] });
+  } catch (err) {
+    console.warn('CSS inject skipped:', err && err.message);
   }
 }
 

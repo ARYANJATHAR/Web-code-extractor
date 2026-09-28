@@ -49,3 +49,71 @@ body.wf-picker-active,
 body.wf-picker-active * {
   cursor: crosshair !important;
 }
+
+/* Picker on/off status bar */
+#wf-extractor-statusbar {
+  position: fixed !important;
+  top: 12px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 2147483647 !important;
+  /* No display rule here: visibility is controlled by inline style
+     (flex when armed, none when stopped). An !important display
+     would override stopPicker() and pin the bar on screen. */
+  align-items: center !important;
+  gap: 9px !important;
+  background: #16181d !important;
+  color: #e8eaf0 !important;
+  border: 1px solid #2a2e37 !important;
+  border-radius: 20px !important;
+  padding: 7px 8px 7px 13px !important;
+  font-family: ui-sans-serif, -apple-system, 'Segoe UI', sans-serif !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45) !important;
+  white-space: nowrap !important;
+}
+
+#wf-extractor-statusbar .wf-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #7fd6a4 !important;
+  flex: none !important;
+  animation: wf-pulse 1.6s ease-in-out infinite !important;
+}
+
+@keyframes wf-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+#wf-extractor-statusbar .wf-text {
+  color: #e8eaf0 !important;
+}
+
+#wf-extractor-statusbar .wf-kbd {
+  font-family: ui-monospace, Menlo, Consolas, monospace !important;
+  font-size: 10.5px !important;
+  color: #8b93a7 !important;
+  border: 1px solid #2a2e37 !important;
+  border-radius: 5px !important;
+  padding: 1px 6px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+#wf-extractor-statusbar .wf-stop {
+  font-family: ui-sans-serif, -apple-system, 'Segoe UI', sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #f08686 !important;
+  background: transparent !important;
+  border: 1px solid rgba(240, 134, 134, 0.5) !important;
+  border-radius: 14px !important;
+  padding: 4px 12px !important;
+  cursor: pointer !important;
+}
+
+#wf-extractor-statusbar .wf-stop:hover {
+  background: rgba(240, 134, 134, 0.12) !important;
+}

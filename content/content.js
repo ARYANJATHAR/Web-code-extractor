@@ -6,7 +6,12 @@
   }
   window.webflowExtractorLoaded = true;
 
-  const WE = globalThis.WfExtractor;
+  const WE = globalThis.WfExtractor || {};
+  if (!WE.createPickerStateMachine || !WE.PickerStates || !WE.runElementExtractionWithPersistence) {
+    console.error('Webflow Extractor: core libs missing (partial injection). Reload the page and retry.');
+    window.webflowExtractorLoaded = false;
+    return;
+  }
   const { PickerStates, createPickerStateMachine } = WE;
   const picker = createPickerStateMachine(PickerStates.IDLE);
 
@@ -25,6 +30,22 @@
   const tooltip = document.createElement('div');
   tooltip.id = 'wf-extractor-tooltip';
   document.body.appendChild(tooltip);
+
+  // Persistent on/off indicator with a Stop control, so users always
+  // know the picker is armed and how to turn it off.
+  const statusbar = document.createElement('div');
+  statusbar.id = 'wf-extractor-statusbar';
+  statusbar.innerHTML = '<span class="wf-dot"></span>'
+    + '<span class="wf-text">Element picker on — click any element</span>'
+    + '<kbd class="wf-kbd">Esc</kbd>'
+    + '<button type="button" class="wf-stop" data-wf-stop>Stop</button>';
+  statusbar.style.display = 'none';
+  document.body.appendChild(statusbar);
+  statusbar.querySelector('[data-wf-stop]').addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    stopPicker();
+  });
 
   picker.onChange((event) => {
     const activeStates = new Set([
@@ -74,7 +95,17 @@
     tooltip.style.top = Math.min(e.clientY + 15, window.innerHeight - 40) + 'px';
   }
 
+  function handleKeyDown(e) {
+    if (e.key === 'Escape' && picker.isActive()) {
+      e.preventDefault();
+      stopPicker();
+    }
+  }
+
   async function handleClick(e) {
+    // Let status-bar clicks (Stop button) pass through to their handler.
+    if (e.target && e.target.closest && e.target.closest('#wf-extractor-statusbar')) return;
+
     const state = picker.getState();
     if (state !== PickerStates.HOVERING && state !== PickerStates.ARMED) return;
 
@@ -116,14 +147,20 @@
   function showConfirmation() {
     const confirm = document.createElement('div');
     confirm.id = 'wf-extractor-confirm';
-    confirm.innerHTML = '✓ Element captured! Open extension to see code.';
+    confirm.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none">'
+      + '<circle cx="8" cy="8" r="7" fill="#7fd6a4"/>'
+      + '<path d="M5.5 8.2 7.2 10 10.6 6.2" stroke="#0f1115" stroke-width="1.8"'
+      + ' stroke-linecap="round" stroke-linejoin="round"/>'
+      + '</svg><span>Element captured. Open the extension to view the code.</span>';
     confirm.style.cssText = `
       position: fixed; top: 20px; right: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white; padding: 12px 20px; border-radius: 8px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 14px; z-index: 2147483647;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      display: flex; align-items: center; gap: 9px;
+      background: #16181d; color: #e8eaf0;
+      border: 1px solid #262b35; border-radius: 10px;
+      padding: 10px 14px;
+      font-family: ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
+      font-size: 12.5px; font-weight: 500; z-index: 2147483647;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.45);
     `;
     document.body.appendChild(confirm);
     setTimeout(() => {
@@ -133,18 +170,36 @@
     }, 2000);
   }
 
+  function hideHighlight() {
+    overlay.style.display = 'none';
+    tooltip.style.display = 'none';
+  }
+
+  function onScrollOrResize() {
+    // Viewport moved: stale fixed overlay would point at the wrong element.
+    // Hide until the next mousemove re-anchors it.
+    if (picker.isActive()) hideHighlight();
+  }
+
   function startPicker() {
     picker.reset();
     picker.transition(PickerStates.ARMED);
     document.addEventListener('mousemove', handleMouseMove, true);
     document.addEventListener('click', handleClick, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    statusbar.style.display = 'flex';
   }
 
   function stopPicker() {
     document.removeEventListener('mousemove', handleMouseMove, true);
     document.removeEventListener('click', handleClick, true);
-    overlay.style.display = 'none';
-    tooltip.style.display = 'none';
+    document.removeEventListener('keydown', handleKeyDown, true);
+    window.removeEventListener('scroll', onScrollOrResize, true);
+    window.removeEventListener('resize', onScrollOrResize);
+    hideHighlight();
+    statusbar.style.display = 'none';
     hoveredElement = null;
     if (picker.getState() !== PickerStates.IDLE) {
       picker.reset();
@@ -186,6 +241,7 @@
     stopPicker();
     overlay.remove();
     tooltip.remove();
+    statusbar.remove();
   });
 
   console.log('Webflow Code Extractor loaded');

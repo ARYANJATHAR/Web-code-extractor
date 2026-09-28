@@ -10,7 +10,7 @@ A Chrome extension that extracts HTML, CSS, React, Tailwind, and Webflow class m
 - **Extraction History** — Last 10 extractions saved via `chrome.storage`
 - **Customizable Options**:
   - Include/exclude child elements
-  - Include computed styles (or inline-only)
+  - Extract computed styles (or inline styles only) for element-picker results
   - Clean Webflow classes
 
 ## Installation
@@ -20,7 +20,7 @@ A Chrome extension that extracts HTML, CSS, React, Tailwind, and Webflow class m
 3. Click **Load unpacked**
 4. Select this project folder
 
-> Icons ship as SVG source files. If Chrome shows a default icon, open `icons/generate-icons.html`, save PNGs locally, and update `manifest.json` paths.
+> Toolbar icons ship as PNG (`icons/icon16|48|128.png`, generated from the SVG sources) as required by Chrome.
 
 ## Usage
 
@@ -64,12 +64,12 @@ npm test
 ## Options
 
 - **Include child elements** — `outerHTML` vs element-only
-- **Include computed styles** — `getComputedStyle` vs inline `style` only
+- **Extract computed styles** — `getComputedStyle` vs inline `style` only; applies to element-picker results
 - **Clean Webflow classes** — Remove `w-*` classes and `data-*` attributes
 
 ## Permissions
 
-- `activeTab` — Access current tab for extraction
+- `activeTab` — Access the current tab only after the user invokes extraction
 - `scripting` — Inject content scripts
 - `clipboardWrite` — Copy code to clipboard
 - `contextMenus` — Right-click "Extract Element Code"
@@ -79,7 +79,7 @@ npm test
 
 - Works best on Webflow-published sites
 - Cross-origin stylesheets may not be extractable (browser security)
-- Repository uses SVG icons only (no binary PNGs)
+- The extension injects its picker only after a user action; it does not run passively on every page.
 
 ## License
 

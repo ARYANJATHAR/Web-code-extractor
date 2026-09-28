@@ -10,6 +10,27 @@ const tabs = document.querySelectorAll('.tab');
 const includeChildrenCheck = document.getElementById('includeChildren');
 const includeComputedCheck = document.getElementById('includeComputed');
 const cleanWebflowCheck = document.getElementById('cleanWebflow');
+const editorTitle = document.getElementById('editorTitle');
+const charCount = document.getElementById('charCount');
+const editorPanel = document.querySelector('.editor');
+
+const TAB_LABELS = { html: 'HTML', css: 'CSS', react: 'React', tailwind: 'Tailwind', mapped: 'Mapped', combined: 'Combined' };
+
+function setPickerButton(active) {
+  isPickerActive = active;
+  togglePickerBtn.classList.toggle('active', active);
+  const label = togglePickerBtn.querySelector('.btn-label');
+  if (label) label.textContent = active ? 'Stop picker' : 'Select element';
+  const pill = document.getElementById('pickerState');
+  if (pill) pill.classList.toggle('on', active);
+  const pillText = document.getElementById('pickerStateText');
+  if (pillText) pillText.textContent = active ? 'Picker on' : 'Idle';
+}
+
+function setCopyButton(copied) {
+  const label = copyCodeBtn.querySelector('span:last-child');
+  if (label) label.textContent = copied ? 'Copied' : 'Copy';
+}
 
 let currentCode = {
   html: '',
@@ -42,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (results?.[0]?.result) {
       await applyExtractedCode(results[0].result, tab.url);
-      showStatus('success', 'Element code loaded!');
+      showStatus('success', 'Element code loaded.');
     }
   } catch (err) {
     console.log('Could not check for stored code:', err);
@@ -51,56 +72,89 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const response = await WfMessaging.sendTabMessage(tab.id, { action: 'getPickerState' }, { retries: 2 });
     if (response?.isActive) {
-      isPickerActive = true;
-      togglePickerBtn.classList.add('active');
-      togglePickerBtn.innerHTML = '<span class="icon">🛑</span> Stop Picker';
+      setPickerButton(true);
+      showStatus('info', 'Picker is on — click any element on the page, or press Stop.');
     }
   } catch (err) {
     // Content script not injected yet
   }
 
   await renderHistory();
+  updateCodeDisplay();
 });
 
 tabs.forEach((tab) => {
   tab.addEventListener('click', () => {
-    tabs.forEach((t) => t.classList.remove('active'));
+    tabs.forEach((t) => {
+      t.classList.remove('active');
+      t.removeAttribute('aria-current');
+    });
     tab.classList.add('active');
+    tab.setAttribute('aria-current', 'true');
     activeTab = tab.dataset.tab;
     updateCodeDisplay();
   });
 });
 
+function isRestrictedUrl(url) {
+  // Universal extension: works on any normal website, but Chrome blocks
+  // scripting on browser pages, Web Store, and non-http(s) schemes.
+  if (!url) return true;
+  return /^(chrome:|edge:|about:|chrome-extension:|moz-extension:|view-source:|file:|data:)/i.test(url)
+    || /chrome\.google\.com\/webstore/i.test(url)
+    || /chromewebstore\.google\.com/i.test(url);
+}
+
+function connectionErrorMessage(tab) {
+  if (tab && isRestrictedUrl(tab.url)) {
+    return 'This browser page blocks extensions. Open any normal website to extract code.';
+  }
+  return 'Could not connect to page. Try refreshing the page, then retry.';
+}
+
+async function syncPickerButtonFromContent(tabId) {
+  try {
+    const state = await WfMessaging.sendTabMessage(tabId, { action: 'getPickerState' }, { retries: 2 });
+    setPickerButton(!!(state && state.isActive));
+  } catch (err) {
+    // Content script not ready yet; keep current local state.
+  }
+}
+
 togglePickerBtn.addEventListener('click', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (isRestrictedUrl(tab && tab.url)) {
+      showStatus('error', connectionErrorMessage(tab));
+      return;
+    }
     await WfMessaging.injectContentScripts(tab.id, WfMessaging.CONTENT_SCRIPT_FILES);
-
-    isPickerActive = !isPickerActive;
 
     await WfMessaging.sendTabMessage(tab.id, {
       action: 'togglePicker',
       options: getOptions()
     });
 
+    await syncPickerButtonFromContent(tab.id);
     if (isPickerActive) {
-      togglePickerBtn.classList.add('active');
-      togglePickerBtn.innerHTML = '<span class="icon">🛑</span> Stop Picker';
-      showStatus('info', 'Click on any element to extract its code');
+      showStatus('info', 'Picker is on — click any element, or press Stop or Esc to exit.');
     } else {
-      togglePickerBtn.classList.remove('active');
-      togglePickerBtn.innerHTML = '<span class="icon">🎯</span> Start Element Picker';
       hideStatus();
     }
   } catch (error) {
-    showStatus('error', 'Could not connect to page. Try refreshing.');
-    isPickerActive = false;
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => [null]);
+    showStatus('error', connectionErrorMessage(tab));
+    setPickerButton(false);
   }
 });
 
 extractPageBtn.addEventListener('click', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (isRestrictedUrl(tab && tab.url)) {
+      showStatus('error', connectionErrorMessage(tab));
+      return;
+    }
     await WfMessaging.injectContentScripts(tab.id, WfMessaging.CONTENT_SCRIPT_FILES);
     showStatus('info', 'Extracting page code...');
 
@@ -111,26 +165,29 @@ extractPageBtn.addEventListener('click', async () => {
 
     if (response?.success) {
       await applyExtractedCode(response.code, tab.url);
-      showStatus('success', 'Page code extracted successfully!');
+      showStatus('success', 'Page code extracted.');
     } else {
-      showStatus('error', 'Failed to extract page code');
+      showStatus('error', 'Page extraction returned no code.');
     }
   } catch (error) {
-    showStatus('error', 'Could not connect to page. Try refreshing.');
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => [null]);
+    showStatus('error', connectionErrorMessage(tab));
   }
 });
 
 copyCodeBtn.addEventListener('click', async () => {
   const code = currentCode[activeTab] || codeOutput.textContent;
+  if (!code || codeOutput.classList.contains('is-empty')) {
+    showStatus('info', 'Nothing to copy yet. Extract an element first.');
+    return;
+  }
   try {
     await navigator.clipboard.writeText(code);
-    showStatus('success', 'Code copied to clipboard!');
-    copyCodeBtn.innerHTML = '<span class="icon">✅</span> Copied!';
-    setTimeout(() => {
-      copyCodeBtn.innerHTML = '<span class="icon">📋</span> Copy';
-    }, 2000);
+    showStatus('success', 'Copied to clipboard.');
+    setCopyButton(true);
+    setTimeout(() => setCopyButton(false), 1600);
   } catch (error) {
-    showStatus('error', 'Failed to copy code');
+    showStatus('error', 'Copy failed in this context. Select the code manually.');
   }
 });
 
@@ -145,47 +202,90 @@ chrome.runtime.onMessage.addListener((message) => {
     chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
       applyExtractedCode(message.code, tab?.url || '');
     });
-    showStatus('success', 'Element code extracted!');
-    isPickerActive = false;
-    togglePickerBtn.classList.remove('active');
-    togglePickerBtn.innerHTML = '<span class="icon">🎯</span> Start Element Picker';
+    showStatus('success', 'Element code extracted.');
+    setPickerButton(false);
   }
 });
+
+function toSafePreview(raw) {
+  // Strip tags so history preview is always plain text (XSS-safe).
+  // Works for universal extraction: any website's HTML becomes inert text.
+  return String(raw || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+}
 
 async function applyExtractedCode(code, url) {
   currentCode = code;
   updateCodeDisplay();
 
-  const preview = code.html || code.css || code.react || '';
-  await WfStorage.saveExtraction({
-    url,
-    selector: 'element',
-    preview,
-    code
-  });
+  const preview = toSafePreview(code.html || code.css || code.react || '');
+  try {
+    await WfStorage.saveExtraction({
+      url,
+      selector: 'element',
+      preview,
+      code
+    });
+  } catch (err) {
+    console.warn('History save failed (quota/full page?):', err);
+    showStatus('error', 'Code extracted, but history is full and could not be saved.');
+  }
   await renderHistory();
 }
 
 async function renderHistory() {
   const history = await WfStorage.getHistory();
-  historyList.innerHTML = '';
+  historyList.textContent = '';
 
   if (!history.length) {
-    historyList.innerHTML = '<li class="history-empty">No saved extractions yet</li>';
+    const empty = document.createElement('li');
+    empty.className = 'history-empty';
+    empty.textContent = 'No saved extractions yet';
+    historyList.appendChild(empty);
     return;
   }
 
   history.forEach((item) => {
     const li = document.createElement('li');
     li.className = 'history-item';
-    li.innerHTML = `
-      <div class="history-meta">${new Date(item.savedAt).toLocaleString()}</div>
-      <div class="history-preview">${item.preview || 'Extraction'}</div>
-    `;
-    li.addEventListener('click', () => {
+    li.tabIndex = 0;
+    let host = '';
+    try {
+      host = item.url ? new URL(item.url).hostname : '';
+    } catch (err) {
+      host = '';
+    }
+    let when = 'Saved extraction';
+    try {
+      when = new Date(item.savedAt).toLocaleString(undefined, {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+    } catch (err) {
+      when = 'Saved extraction';
+    }
+    const meta = document.createElement('div');
+    meta.className = 'history-meta';
+    meta.textContent = host ? `${when} — ${host}` : when;
+    const previewEl = document.createElement('div');
+    previewEl.className = 'history-preview';
+    // textContent keeps even legacy entries with raw HTML inert.
+    previewEl.textContent = toSafePreview(item.preview) || 'Extraction';
+    li.appendChild(meta);
+    li.appendChild(previewEl);
+    const load = () => {
       currentCode = item.code;
       updateCodeDisplay();
-      showStatus('info', 'Loaded from history');
+      showStatus('info', 'Loaded from history.');
+    };
+    li.addEventListener('click', load);
+    li.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        load();
+      }
     });
     historyList.appendChild(li);
   });
@@ -199,9 +299,20 @@ function getOptions() {
   };
 }
 
+function formatCharCount(n) {
+  if (!n) return '0 chars';
+  if (n < 1000) return `${n} chars`;
+  return `${(n / 1000).toFixed(1)}k chars`;
+}
+
 function updateCodeDisplay() {
   const code = currentCode[activeTab] || '';
-  codeOutput.textContent = code || 'No output for this tab yet.';
+  const empty = !code;
+  codeOutput.textContent = code || 'Select an element on the page, or run a full-page extraction. Output appears here.';
+  codeOutput.classList.toggle('is-empty', empty);
+  if (editorTitle) editorTitle.textContent = TAB_LABELS[activeTab] || activeTab;
+  if (charCount) charCount.textContent = formatCharCount(code.length);
+  if (editorPanel) editorPanel.classList.toggle('has-content', !empty);
 }
 
 function showStatus(type, message) {
