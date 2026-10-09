@@ -2,6 +2,11 @@
 
 A Chrome extension that extracts HTML, CSS, React, Tailwind, and Webflow class mappings from Webflow designs and any webpage.
 
+
+https://github.com/user-attachments/assets/4e859c00-491e-4a2b-92a9-4dc8d8319b27
+
+
+
 ## Features
 
 - **Element Picker** — Click any element to extract its code
